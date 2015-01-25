@@ -375,7 +375,7 @@ public final class FSAToREPreparationWorkflow {
         return currentStep == FINISHED;
     }
 
-    public FiniteStateAutomaton getPreaparedFSA() {
+    public FiniteStateAutomaton getPreparedFSA() {
         if (!this.isDone()) {
             return null;
         }

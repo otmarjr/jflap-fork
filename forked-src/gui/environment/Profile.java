@@ -19,6 +19,7 @@
 
 package gui.environment;
 
+import automata.CompactCharSequence;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
@@ -165,6 +166,7 @@ public class Profile {
 	 * @param empty the empty string
 	 */
 	public void setEmptyString(String empty){
+                this.compactEmptyString = new CompactCharSequence(empty);
 		emptyString = empty;
 	}
 	
@@ -175,6 +177,12 @@ public class Profile {
 	 */
 	public String getEmptyString(){
 		return emptyString;
+	}
+        
+        CompactCharSequence compactEmptyString;
+        
+        public CompactCharSequence getCompactEmptyString(){
+		return compactEmptyString;
 	}
 	
 	/**

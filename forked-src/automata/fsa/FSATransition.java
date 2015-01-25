@@ -20,6 +20,7 @@
 
 package automata.fsa;
 
+import automata.CompactCharSequence;
 import gui.environment.Universe;
 import automata.Transition;
 import automata.State;
@@ -51,6 +52,11 @@ public class FSATransition extends Transition {
 		super(from, to);
 		setLabel(label);
 	}
+        
+        public FSATransition(State from, State to, CompactCharSequence compactLabel) {
+		super(from, to);
+		this.setCompactLabel(compactLabel);
+	}
 
 	/**
 	 * Produces a copy of this transition with new from and to states.
@@ -71,6 +77,14 @@ public class FSATransition extends Transition {
 	public String getLabel() {
 		return myLabel;
 	}
+        
+        public CompactCharSequence getCompactLabel() {
+            return this.compactLabel;
+        }
+        
+        protected void setCompactLabel(CompactCharSequence compactLabel){
+            this.compactLabel = compactLabel;
+        }
 
 	/**
 	 * Sets the label for this transition.
@@ -82,6 +96,7 @@ public class FSATransition extends Transition {
 	 *             alphanumeric
 	 */
 	protected void setLabel(String label) {
+                this.compactLabel = new CompactCharSequence(myLabel);
 		myLabel = label;
 	}
 
@@ -140,4 +155,6 @@ public class FSATransition extends Transition {
 	 * precondition that a string must satisfy before the machine continues.
 	 */
 	protected String myLabel = "";
+        
+        protected CompactCharSequence compactLabel;
 }

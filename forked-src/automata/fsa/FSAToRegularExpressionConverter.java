@@ -21,6 +21,7 @@ import java.util.ArrayList;
 
 import regular.Discretizer;
 import automata.Automaton;
+import automata.CompactCharSequence;
 import automata.State;
 import automata.StatePlacer;
 import automata.Transition;
@@ -154,6 +155,15 @@ public class FSAToRegularExpressionConverter {
                 expression);
         return transition;
     }
+    
+    public static Transition getTransitionForCompactExpression(int p, int q,
+            CompactCharSequence compactExpression, Automaton automaton) {
+        State fromState = automaton.getStateWithID(p);
+        State toState = automaton.getStateWithID(q);
+        Transition transition = new FSATransition(fromState, toState,
+                compactExpression);
+        return transition;
+    }
 
     /**
      * Returns the expression on the transition between <CODE>fromState</CODE>
@@ -171,6 +181,14 @@ public class FSAToRegularExpressionConverter {
                 fromState, toState);
         FSATransition trans = (FSATransition) transitions[0];
         return trans.getLabel();
+    }
+    
+     public static CompactCharSequence getCompactExpressionBetweenStates(State fromState, State toState,
+            Automaton automaton) {
+        Transition[] transitions = automaton.getTransitionsFromStateToState(
+                fromState, toState);
+        FSATransition trans = (FSATransition) transitions[0];
+        return trans.getCompactLabel();
     }
 
     /**
@@ -205,6 +223,25 @@ public class FSAToRegularExpressionConverter {
         return label;
     }
 
+    public static CompactCharSequence getCompactExpression(int p, int q, int k, Automaton automaton) {
+        State fromState = automaton.getStateWithID(p);
+        State toState = automaton.getStateWithID(q);
+        State removeState = automaton.getStateWithID(k);
+
+        CompactCharSequence pq = getCompactExpressionBetweenStates(fromState, toState, automaton);
+        CompactCharSequence pk = getCompactExpressionBetweenStates(fromState, removeState,
+                automaton);
+        CompactCharSequence kk = getCompactExpressionBetweenStates(removeState, removeState,
+                automaton);
+        CompactCharSequence kq = getCompactExpressionBetweenStates(removeState, toState, automaton);
+
+        CompactCharSequence temp1 = starCompact(kk);
+        CompactCharSequence temp2 = concatenateCompact(pk, temp1);
+        CompactCharSequence temp3 = concatenateCompact(temp2, kq);
+        CompactCharSequence label = orCompact(pq, temp3);
+        return label;
+    }
+    
     static Map<String, Map<String, String>> concatenationCache = new HashMap<String, Map<String, String>>();
 
     /**
@@ -242,26 +279,48 @@ public class FSAToRegularExpressionConverter {
                 concatenatedToR1.put(r2, new StringBuilder().append(r1).append(r2).toString());
             } catch (OutOfMemoryError error) {
                 System.out.println("Error trying to concatenate r1 of length + " + r1.length() + " and r2 of length " + r2.length());
-                        //System.out.println(r1);
-                //System.out.println(r2);
-
-                try {
-                    File temp = File.createTempFile("string_temp", ".txt");
-                    FileWriter fw = new FileWriter(temp.getAbsoluteFile());
-                    BufferedWriter bw = new BufferedWriter(fw);
-                    bw.write(r1);
-                    bw.write(r2);
-                    bw.close();
-                    return new Scanner(temp).useDelimiter("\\Z").next();
-                } catch (IOException ex) {
-                    Logger.getLogger(FSAToRegularExpressionConverter.class.getName()).log(Level.SEVERE, null, ex);
-                }
 
                 throw error;
             }
         }
 
         return concatenationCache.get(r1).get(r2);
+    }
+    
+     public static CompactCharSequence concatenateCompact(CompactCharSequence r1, CompactCharSequence r2) {
+        if (r1.equals(EMPTY_COMPACT) || r2.equals(EMPTY_COMPACT)) {
+            return EMPTY_COMPACT;
+        } else if (r1.equals(LAMBDA_COMPACT)) {
+            return r2;
+        } else if (r2.equals(LAMBDA_COMPACT)) {
+            return r1;
+        }
+        if (Discretizer.orCompact(r1).size() > 1) {
+            r1 = addParenCompact(r1);
+        }
+        if (Discretizer.orCompact(r2).size() > 1) {
+            r2 = addParenCompact(r2);
+        }
+        
+        r1.concatenateAfter(r2);
+
+        return r1;
+    }
+    
+    public static CompactCharSequence starCompact(CompactCharSequence r1){
+        if (r1.equals(EMPTY_COMPACT) || r1.equals(LAMBDA_COMPACT)) {
+                return LAMBDA_COMPACT;
+            }
+            if (Discretizer.orCompact(r1).size() > 1 || Discretizer.catCompact(r1).size() > 1) {
+                r1 = addParenCompact(r1);
+            } else {
+                if (r1.endsWith(KLEENE_STAR)) {
+                    return r1;
+                }
+            }
+            
+            r1.addSuffix(KLEENE_STAR);
+            return r1;
     }
 
     /**
@@ -314,6 +373,30 @@ public class FSAToRegularExpressionConverter {
         return r1 + OR + r2;
     }
 
+      public static CompactCharSequence orCompact(CompactCharSequence r1, CompactCharSequence r2) {
+        if (r1.equals(EMPTY_COMPACT)) {
+            return r2;
+        }
+        if (r2.equals(EMPTY_COMPACT)) {
+            return r1;
+        }
+        if (r1.equals(LAMBDA_COMPACT) && r2.equals(LAMBDA_COMPACT)) {
+            return LAMBDA_COMPACT;
+        }
+        if (r1.equals(LAMBDA_COMPACT)) {
+            r1 = LAMBDA_DISPLAY_COMPACT;
+        }
+        if (r2.equals(LAMBDA_COMPACT)) {
+            r2 = LAMBDA_DISPLAY_COMPACT;
+        }
+		// if(needsParens(r1)) r1 = addParen(r1);
+        // if(needsParens(r2)) r2 = addParen(r2);
+        r1.concatenateAfter(OR_COMPACT);
+        r1.concatenateAfter(r2);
+        return r1;
+    }
+
+    
     /**
      * Completely reconstructs <CODE>automaton</CODE>, removing all transitions
      * and <CODE>state</CODE> and adding all transitions in
@@ -361,9 +444,10 @@ public class FSAToRegularExpressionConverter {
                 for (int j = 0; j < states.length; j++) {
                     int q = states[j].getID();
                     if (q != k) {
-                        String exp = getExpression(p, q, k, automaton);
-                        list.add(getTransitionForExpression(p, q, exp,
-                                automaton));
+                        // String exp = getExpression(p, q, k, automaton);
+                        CompactCharSequence compactExp = getCompactExpression(p, q, k, automaton);
+                        //list.add(getTransitionForExpression(p, q, exp,automaton));
+                        list.add(getTransitionForCompactExpression(p, q, compactExp, automaton));
                     }
                 }
             }
@@ -534,7 +618,12 @@ public class FSAToRegularExpressionConverter {
     public static String addParen(String word) {
         return LEFT_PAREN + word + RIGHT_PAREN;
     }
-
+    
+    public static CompactCharSequence addParenCompact(CompactCharSequence compactWord){
+        compactWord.addPrefix(LEFT_PAREN);
+        compactWord.addSuffix(RIGHT_PAREN);
+        return compactWord;
+    }
     /**
      * Returns a non-unicoded version of <CODE>word</CODE> for debug purposes.
      *
@@ -585,7 +674,7 @@ public class FSAToRegularExpressionConverter {
      */
     public static String getII(Automaton automaton) {
         State initialState = automaton.getInitialState();
-        return getExpressionBetweenStates(initialState, initialState, automaton);
+        return getCompactExpressionBetweenStates(initialState, initialState, automaton).toString();
     }
 
     /**
@@ -601,7 +690,7 @@ public class FSAToRegularExpressionConverter {
         State initialState = automaton.getInitialState();
         State[] finalStates = automaton.getFinalStates();
         State finalState = finalStates[0];
-        return getExpressionBetweenStates(initialState, finalState, automaton);
+        return getCompactExpressionBetweenStates(initialState, finalState, automaton).toString();
     }
 
     /**
@@ -616,7 +705,7 @@ public class FSAToRegularExpressionConverter {
     public static String getJJ(Automaton automaton) {
         State[] finalStates = automaton.getFinalStates();
         State finalState = finalStates[0];
-        return getExpressionBetweenStates(finalState, finalState, automaton);
+        return getCompactExpressionBetweenStates(finalState, finalState, automaton).toString();
     }
 
     /**
@@ -632,7 +721,7 @@ public class FSAToRegularExpressionConverter {
         State initialState = automaton.getInitialState();
         State[] finalStates = automaton.getFinalStates();
         State finalState = finalStates[0];
-        return getExpressionBetweenStates(finalState, initialState, automaton);
+        return getCompactExpressionBetweenStates(finalState, initialState, automaton).toString();
     }
 
     /**
@@ -674,25 +763,32 @@ public class FSAToRegularExpressionConverter {
 
     /* the string for the empty set. */
     public static final String EMPTY = "\u00F8";
+    public static final CompactCharSequence EMPTY_COMPACT = new CompactCharSequence(EMPTY);
 
     /* the string for lambda. */
     public static final String LAMBDA_DISPLAY = Universe.curProfile.getEmptyString();
+    public static final CompactCharSequence LAMBDA_DISPLAY_COMPACT = new CompactCharSequence(LAMBDA_DISPLAY);
 
     public static final String LAMBDA = "";
+    public static final CompactCharSequence LAMBDA_COMPACT = new CompactCharSequence(LAMBDA);
 
     /* the string for the kleene star. */
     public static final String KLEENE_STAR = "*";
+    public static final CompactCharSequence KLEENE_STAR_COMPACT = new CompactCharSequence(KLEENE_STAR);
 
     /* the string for the or symbol. */
     public static final String OR = "+";
+    public static final CompactCharSequence OR_COMPACT = new CompactCharSequence(OR);
 
     /**
      * right paren.
      */
     public static final String RIGHT_PAREN = ")";
+    public static final CompactCharSequence RIGHT_PAREN_COMPACT = new CompactCharSequence(RIGHT_PAREN);
 
     /**
      * left paren.
      */
     public static final String LEFT_PAREN = "(";
+    public static final CompactCharSequence LEFT_PAREN_COMPACT = new CompactCharSequence(LEFT_PAREN);
 }
