@@ -8,7 +8,10 @@ package automata.fsa;
 import automata.State;
 import automata.Transition;
 import java.awt.Point;
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 import regular.RegularExpression;
 
@@ -29,52 +32,50 @@ public final class FSAToREPreparationWorkflow {
         clearSelectedStates();
         clearSelectedTransitions();
     }
-    
-    private void clearSelectedStates(){
+
+    private void clearSelectedStates() {
         selectedStates.clear();
     }
-    
-    private void addToSelectedStates(State state){
+
+    private void addToSelectedStates(State state) {
         selectedStates.add(state);
     }
-    
-    private void addToSelectedTransitions(Transition transition){
+
+    private void addToSelectedTransitions(Transition transition) {
         selectedTransitions.add(transition);
     }
-    
-    private void clearSelectedTransitions(){
+
+    private void clearSelectedTransitions() {
         this.selectedTransitions.clear();
     }
-    
-    private boolean isStateSelected(State state){
+
+    private boolean isStateSelected(State state) {
         return selectedStates.contains(state);
     }
-    
+
     private void removeSelectedState(State from) {
         this.selectedStates.remove(from);
     }
-    
+
     private String mainStepMessage;
     private String detailStepMessage;
-    
-    private void setMainStepMessage(String text){
+
+    private void setMainStepMessage(String text) {
         this.mainStepMessage = text;
     }
-    
-    public String getMainStepMessage(){
+
+    public String getMainStepMessage() {
         return mainStepMessage;
     }
-    
-    private void setDetailStepMessage(String text){
+
+    private void setDetailStepMessage(String text) {
         this.detailStepMessage = text;
     }
-    
-    public String getDetailStepMessage(){
+
+    public String getDetailStepMessage() {
         return detailStepMessage;
     }
-    
-    
-    
+
     /**
      * Instantiates a new <CODE>FSAToREController</CODE>.
      *
@@ -94,6 +95,7 @@ public final class FSAToREPreparationWorkflow {
     private void showMessageDialog(String message, String title) {
         throw new RuntimeException(title + " - " + message);
     }
+
     /**
      * This method should be called when the user undertakes an action that is
      * inappropriate for the current step. This merely displays a small dialog
@@ -132,7 +134,7 @@ public final class FSAToREPreparationWorkflow {
             case CONVERT_TRANSITIONS:
                 setMainStepMessage("Reform Transitions");
                 setDetailStepMessage("Use the collapse tool to turn multiple transitions to one."
-                                + " " + remaining + " more collapses needed.");
+                        + " " + remaining + " more collapses needed.");
                 if (remaining != 0) {
                     return;
                 }
@@ -140,9 +142,9 @@ public final class FSAToREPreparationWorkflow {
                 remaining = emptyNeeded();
             case CREATE_EMPTY_TRANSITIONS:
                 setDetailStepMessage("Put empty transitions between states with no transitions."
-                                + " "
-                                + remaining
-                                + " more empty transitions needed.");
+                        + " "
+                        + remaining
+                        + " more empty transitions needed.");
                 if (remaining != 0) {
                     return;
                 }
@@ -151,12 +153,13 @@ public final class FSAToREPreparationWorkflow {
             case COLLAPSE_STATES:
                 setMainStepMessage("Remove States");
                 setDetailStepMessage("Use the collapse state tool to remove nonfinal, noninitial "
-                                + "states. " + remaining + " more removals needed.");
+                        + "states. " + remaining + " more removals needed.");
                 if (remaining != 0) {
                     return;
                 }
                 clearSelected();
-                clearSelectedTransitions();;
+                clearSelectedTransitions();
+                ;
                 currentStep = FINISHED;
             case FINISHED:
                 setMainStepMessage("Generalized Transition Graph Finished!");
@@ -307,13 +310,13 @@ public final class FSAToREPreparationWorkflow {
             return false;
         }
         if (automaton.getInitialState() == state) {
-            throw new RuntimeException( "The initial state cannot be removed! Initial State Selected");
+            throw new RuntimeException("The initial state cannot be removed! Initial State Selected");
         }
-        
+
         if (automaton.getFinalStates()[0] == state) {
-            throw new RuntimeException( "The final state cannot be removed! Final State Selected");
+            throw new RuntimeException("The final state cannot be removed! Final State Selected");
         }
-        
+
         collapseState = state;
         clearSelectedStates();
         addToSelectedStates(collapseState);
@@ -361,29 +364,49 @@ public final class FSAToREPreparationWorkflow {
                 collapseState)[0];
         Transition d = automaton.getTransitionsFromStateToState(collapseState,
                 to)[0];
-        
+
         this.addToSelectedTransitions(a);
         this.addToSelectedTransitions(b);
         this.addToSelectedTransitions(c);
         this.addToSelectedTransitions(d);
     }
 
-    public boolean isDone(){
+    public boolean isDone() {
         return currentStep == FINISHED;
     }
-    
-    public FiniteStateAutomaton getPreaparedFSA(){
-        if (!this.isDone())
+
+    public FiniteStateAutomaton getPreaparedFSA() {
+        if (!this.isDone()) {
             return null;
-        
+        }
+
         return this.automaton;
     }
-    
-    public void perform(){
-        while(!isDone()){
+
+    public void perform() {
+        while (!isDone()) {
             moveNextStep();
         }
     }
+
+    private void createSingleFinalState() {
+        List<State> finalSates;
+        finalSates = new LinkedList<>(Arrays.asList(automaton.getFinalStates()));
+
+        finalSates.forEach(fs -> automaton.removeFinalState(fs));
+
+        State newFinalState = automaton.createStateWithId(null, automaton.getStates().length);
+        automaton.addFinalState(newFinalState);
+        this.selectedStates.addAll(finalSates);
+        currentStep = TRANSITIONS_TO_SINGLE_FINAL;
+    }
+
+    private static void collapseStates(FiniteStateAutomaton automaton, State s) {
+        Transition[] t = FSAToRegularExpressionConverter.getTransitionsForRemoveState(s,
+                automaton);
+        FSAToRegularExpressionConverter.removeState(s, t, automaton);
+    }
+
     /**
      * This will automatically perform the actions to move the conversion to the
      * next step.
@@ -391,15 +414,14 @@ public final class FSAToREPreparationWorkflow {
     private void moveNextStep() {
         switch (currentStep) {
             case CREATE_SINGLE_FINAL:
-                showMessageDialog(
-                        "Just create a state.\nIt's not too difficult.",
-                        "Create the State");
+                createSingleFinalState();
                 return;
             case TRANSITIONS_TO_SINGLE_FINAL:
                 State[] states = new State[this.getNumberOfSelectedStates()];
                 states = this.selectedStates.toArray(states);
                 State finalState = automaton.getFinalStates()[0];
                 for (int i = 0; i < states.length; i++) {
+                    this.removeSelectedState(states[i]);
                     transitionCreate(states[i], finalState);
                 }
                 break;
@@ -432,9 +454,12 @@ public final class FSAToREPreparationWorkflow {
                             || automaton.getInitialState() == s[i]) {
                         continue;
                     }
+                    collapseStates(automaton, s[i]);
+                    /*
                     Transition[] t = FSAToRegularExpressionConverter.getTransitionsForRemoveState(s[i],
                             automaton);
                     FSAToRegularExpressionConverter.removeState(s[i], t, automaton);
+                    */
                 }
                 remaining = 0;
                 nextStep();
@@ -479,7 +504,6 @@ public final class FSAToREPreparationWorkflow {
      */
     private FiniteStateAutomaton automaton;
 
-    
     /**
      * The number of things left to do. This can be used by different steps.
      */
