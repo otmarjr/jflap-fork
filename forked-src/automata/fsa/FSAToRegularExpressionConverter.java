@@ -444,10 +444,8 @@ public class FSAToRegularExpressionConverter {
                 for (int j = 0; j < states.length; j++) {
                     int q = states[j].getID();
                     if (q != k) {
-                        // String exp = getExpression(p, q, k, automaton);
-                        CompactCharSequence compactExp = getCompactExpression(p, q, k, automaton);
-                        //list.add(getTransitionForExpression(p, q, exp,automaton));
-                        list.add(getTransitionForCompactExpression(p, q, compactExp, automaton));
+                        String exp = getExpression(p, q, k, automaton);
+                        list.add(getTransitionForExpression(p, q, exp,automaton));
                     }
                 }
             }
@@ -674,7 +672,7 @@ public class FSAToRegularExpressionConverter {
      */
     public static String getII(Automaton automaton) {
         State initialState = automaton.getInitialState();
-        return getCompactExpressionBetweenStates(initialState, initialState, automaton).toString();
+        return getExpressionBetweenStates(initialState, initialState, automaton);
     }
 
     /**
@@ -690,7 +688,7 @@ public class FSAToRegularExpressionConverter {
         State initialState = automaton.getInitialState();
         State[] finalStates = automaton.getFinalStates();
         State finalState = finalStates[0];
-        return getCompactExpressionBetweenStates(initialState, finalState, automaton).toString();
+        return getExpressionBetweenStates(initialState, finalState, automaton);
     }
 
     /**
@@ -705,7 +703,7 @@ public class FSAToRegularExpressionConverter {
     public static String getJJ(Automaton automaton) {
         State[] finalStates = automaton.getFinalStates();
         State finalState = finalStates[0];
-        return getCompactExpressionBetweenStates(finalState, finalState, automaton).toString();
+        return getExpressionBetweenStates(finalState, finalState, automaton);
     }
 
     /**
@@ -721,7 +719,7 @@ public class FSAToRegularExpressionConverter {
         State initialState = automaton.getInitialState();
         State[] finalStates = automaton.getFinalStates();
         State finalState = finalStates[0];
-        return getCompactExpressionBetweenStates(finalState, initialState, automaton).toString();
+        return getExpressionBetweenStates(finalState, initialState, automaton);
     }
 
     /**
